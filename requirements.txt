@@ -1,0 +1,8 @@
+1) REQUERIMENTS FOR LINUX
+    pip3 install discord.py
+    pip3 install pytube
+    pip3 install pynacl
+    sudo apt-get install ffmpeg
+    pip3 install youtube-dl
+
+    
