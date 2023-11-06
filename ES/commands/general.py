@@ -17,9 +17,10 @@ class General(commands.Cog):
     @commands.command()
     async def me(self, ctx):
         name = ctx.author.display_name
+        pic = ctx.author.avatar
         await var.bot_send_msg(ctx, f"Tu nombre es: {name}\n")
         await var.bot_send_msg(ctx, "Tu foto de perfil es:")
-        await var.bot_send_msg(ctx, "pic", "pic")
+        await var.bot_send_msg(ctx, pic)
 
     @commands.command()
     async def move(self, ctx, user: discord.Member, channel: discord.VoiceChannel):
@@ -52,9 +53,11 @@ class General(commands.Cog):
             else:
                 num = int(num)
                 while (num >= 100):
-                    await ctx.channel.purge(limit=100)
+                    messages = await ctx.channel.purge(limit=100)
                     count += 100
-                    num %= 100
+                    num -= messages
+                    if len(messages) == 0:
+                        break
                 await ctx.channel.purge(limit=num)
                 count += num
 

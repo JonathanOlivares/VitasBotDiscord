@@ -4,5 +4,13 @@
     pip3 install pynacl
     sudo apt-get install ffmpeg
     pip3 install youtube-dl
+    pip3 install yt_dlp
+    pip3 install decouple
 
-    
+
+Add this to the line 150 of search.py of pytube
+
+if 'reelShelfRenderer' in video_details: # Agregada
+    continue
+
+

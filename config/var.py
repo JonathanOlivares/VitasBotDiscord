@@ -27,7 +27,6 @@ async def bot_send_msg(ctx, msg, type: str = None):
 
     if (type == "embed"):
         await channel.send(embed=msg)
-
     else:
         await channel.send(msg)
 

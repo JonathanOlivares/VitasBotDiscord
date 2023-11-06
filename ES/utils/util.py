@@ -1,4 +1,6 @@
 from config import var
+import asyncio
+
 
 commands_help_ES = {
     'elvitas': 'Envia varios mensajes diciendo El Vitas',
@@ -23,9 +25,9 @@ commands_option_ES = {
 }
 
 
-async def verify(ctx):
+async def verify_music_commands(ctx):
     if ctx.voice_client:
-        if ctx.author.voice != None and ctx.author.voice.channel == ctx.voice_client.channel:
+        if author_in_voice_channel(ctx) and same_voice_channel(ctx):
             return True
         else:
             msg = "Debemos estar en el mismo canal de voz"
@@ -35,3 +37,18 @@ async def verify(ctx):
         await var.bot_send_msg(ctx, msg)
 
     return False
+
+
+def author_in_voice_channel(ctx): 
+    return True if ctx.author.voice != None else False
+
+def same_voice_channel(ctx,channel):
+    return True if channel == ctx.voice_client.channel else False
+
+def bot_in_voice_channel(ctx):
+    return False if ctx.voice_client == None else True
+
+async def verify_move(ctx,channel):
+    while (not same_voice_channel(ctx,channel)):
+        await asyncio.sleep(1)
+

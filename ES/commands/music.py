@@ -4,23 +4,30 @@ import random
 import asyncio
 import discord
 import subprocess
-
+import ES.utils.util as util
 from pytube import Search, YouTube
 from discord.ext import commands
-from ES.utils.util import verify
-from config import var
 
+from config import var
+from enum import Enum
+
+
+class BotAction(Enum):
+    NOTHING = 0
+    CONNECT = 1
+    MOVE = 2
+    FALSE = 3
 
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
     @commands.command()
     async def play(self, ctx, *, search):
 
         pattern = re.compile(
             r'^(https?\:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$')
-        if (pattern.match(search)):
+        is_Link = pattern.match(search)
+        if (is_Link):
             video = YouTube(search)
         else:
             video = await self.get_video_results(ctx, search)
@@ -28,11 +35,9 @@ class Music(commands.Cog):
                 return "User dont put number"
 
         if await self.join(ctx):
-            var.queue.append(video)  # agrega cancion a la cola
+            var.queue.append(video)
             if not ctx.voice_client.is_playing():
                 self.play_next(ctx)
-
-                # Para evitar que el audio comience rapido
                 ctx.voice_client.pause()
                 await asyncio.sleep(2)
                 ctx.voice_client.resume()
@@ -70,12 +75,12 @@ class Music(commands.Cog):
             var.now_playing = var.queue[0]
 
             ytdl = subprocess.Popen(
-                ["youtube-dl", "-f", "bestaudio/worst", "-i", var.queue.pop(0).watch_url, "-o", "-"], stdout=subprocess.PIPE)
+                ["yt-dlp", "-f", "bestaudio/worst", "-i", var.queue.pop(0).watch_url, "-o", "-"], stdout=subprocess.PIPE)
             source = discord.FFmpegPCMAudio(
                 ytdl.stdout, pipe=True)
 
-            ctx.voice_client.play(source, after=lambda e: self.play_next(ctx))
-
+            ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self.after_play(ctx),self.bot.loop))
+            
             embed = discord.Embed(
                 title="", color=discord.Color.purple())
             embed.add_field(
@@ -89,24 +94,44 @@ class Music(commands.Cog):
                 self.bot.loop)
             var.now_playing = None
 
-    @commands.command()
-    async def skip(self, ctx):
-        if await verify(ctx):
-            if var.now_playing != None:
-                ctx.voice_client.stop()
-                var.now_playing = None
-                ctx.voice_client.pause()
-                await asyncio.sleep(2)
-                ctx.voice_client.resume()
+    async def after_play(self,ctx):
+        self.play_next(ctx)
+        ctx.voice_client.pause()
+        await asyncio.sleep(2)
+        ctx.voice_client.resume()
                 
 
+    @commands.command()
+    async def skip(self, ctx):
+        if await util.util.verify(ctx):
+            if var.now_playing != None:
+                var.now_playing = None
+                ctx.voice_client.stop()
+            else:
+                msg="No hay ninguna canción en reproducción."
+                await var.bot_send_msg(ctx,msg)
+
+    @commands.command()
+    async def pause(self, ctx):
+        if await util.verify(ctx):
+            if var.now_playing != None:
+                ctx.voice_client.pause()
+            else:
+                msg="No hay ninguna canción en reproducción."
+                await var.bot_send_msg(ctx,msg)
+
+    @commands.command()
+    async def resume(self, ctx):
+        if await util.verify(ctx):
+            if var.now_playing != None:
+                ctx.voice_client.resume()
             else:
                 msg="No hay ninguna canción en reproducción."
                 await var.bot_send_msg(ctx,msg)
 
     @commands.command()
     async def stop(self, ctx):
-        if await verify(ctx):
+        if await util.verify(ctx):
             if ctx.voice_client.is_playing():
                 var.queue.clear()
                 ctx.voice_client.stop()
@@ -117,36 +142,50 @@ class Music(commands.Cog):
 
     @commands.command()
     async def join(self, ctx):  # Es necesario: pip install pynacl
-        if ctx.author.voice != None:
-            user_voice_channel = ctx.author.voice.channel
+        is_join = True
+        action = await self.verify_join(ctx)
+        match action:
+            case BotAction.CONNECT:
+                await ctx.author.voice.channel.connect()
+            case BotAction.MOVE:
+                self.move_bot(ctx.author.voice.channel)
+            case BotAction.FALSE:
+                is_join = False
+        return is_join
+
+    async def verify_join(self,ctx):
+        if(util.author_in_voice_channel(ctx)):
+            bot_voice = ctx.voice_client
+            if not util.bot_in_voice_channel(ctx):
+                return BotAction.CONNECT
+
+            elif bot_voice.is_playing():
+                if util.same_voice_channel:
+                    return BotAction.NOTHING
+                else:
+                    msg="Bot en otro canal."
+
+            elif not util.same_voice_channel(ctx):
+                return BotAction.MOVE
+ 
+            else:
+                msg="Bot ya se encuentra en este canal."
         else:
             msg="Debes estar en un canal de voz"
-            await var.bot_send_msg(ctx,msg)
-            return False
-        cv = ctx.voice_client
-        if user_voice_channel:
-            if cv == None:
-                await user_voice_channel.connect()
-                return True
-            elif not cv.is_playing():
-                if cv.channel != user_voice_channel:
-                    await cv.move_to(user_voice_channel)
-                    while (cv.channel != user_voice_channel):
-                        await asyncio.sleep(1)
-                return True
-            else:  # si esta sonando
-                if cv.channel != user_voice_channel:
-                    return False
-                else:
-                    return True
-        else:
-            msg = "No estas conectado a un canal de voz"
-            await var.bot_send_msg(ctx,msg)
-            return False
+
+        await var.bot_send_msg(ctx,msg)
+        return BotAction.FALSE
+
+    async def move_bot(self, ctx, channel):
+        bot_voice = ctx.voice_client
+        await bot_voice.move_to(channel)
+        await util.verify_move(ctx,channel)
+        return True
+
 
     @commands.command()
     async def leave(self, ctx):
-        if await verify(ctx):
+        if await util.verify(ctx):
             var.queue.clear()
             ctx.voice_client.stop()
         await ctx.voice_client.disconnect()
