@@ -1,3 +1,2 @@
-# from decouple import config #Delete this and put your token
-# TOKEN = config("DS-TOKEN")
-TOKEN = "MTA2NDI4NDUwMTkwMTA1ODA5OA.GdGmQZ.zSgSwA1DRVhDVbl-UdSOtDKCZNwTndOw_rN0R0"
+from decouple import config #Put your token in .env
+TOKEN = config("DS-TOKEN")
