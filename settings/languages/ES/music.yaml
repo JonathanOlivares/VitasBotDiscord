@@ -1,0 +1,13 @@
+select_option: "Selecciona la opción:"
+select_number: "Seleccionaste el número {}." #"Seleccionaste el número {number}."
+invalid_digit: "Se esperaba un dígito entre 1 y 5. Vuelve a intentarlo."
+timeout: "Te demoraste demasiado en responder."
+
+play: "Sonando:"
+no_audio: "No hay más audios en la cola."
+no_playing: "No hay ninguna canción en reproducción."
+other_channel: "Bot en otro canal."
+must_be_in_voice_channel: "Debes estar en un canal de voz."
+queue: "Cola"
+shuffle: "Mezclado."
+no_songs_to_shuffle: "No posees canciones que mezclar."

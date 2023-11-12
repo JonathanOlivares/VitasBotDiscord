@@ -1,0 +1,7 @@
+
+lang_change: "Idioma cambiado."
+no_channel: "El canal de texto ingresado no existe"
+channel_change: "Canal cambiado."
+commands_option:
+  language: "Cambia el idioma del bot, se debe especificar el idioma. Idiomas permitidos: US,ES. Ejemplo: v!language ES"
+  botchannel: "Especifica un canal de texto en el cual el bot envia mensajes, para desactivarlo basta con dar false. Ejemplo: v!botchannel false"

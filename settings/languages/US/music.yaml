@@ -1,0 +1,13 @@
+select_option: "Select the option:"
+select_number: "You selected number {}." #"You selected number {number}."
+invalid_digit: "Expected a digit between 1 and 5. Please try again."
+timeout: "You took too long to respond."
+
+play: "Playing:"
+no_audio: "No more audios in the queue."
+no_playing: "No song is currently playing."
+other_channel: "Bot in another channel."
+must_be_in_voice_channel: "You must be in a voice channel."
+queue: "Queue"
+shuffle: "Shuffled."
+no_songs_to_shuffle: "You have no songs to shuffle."

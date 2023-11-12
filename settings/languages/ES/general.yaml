@@ -1,0 +1,23 @@
+me: "Tu nombre es: {}\nTu foto de perfil es:" #"Tu nombre es: {name}\nTu foto de perfil es:"
+playing: "El bot actualmente se encuentra en reproducción. Intentelo más tarde"
+move: "{} trasladado al canal de voz {}" #"{user} trasladado al canal de voz {channel}"
+not_in_voice: "El usuario {} no se encuentra en un canal de voz" #"El usuario {user} no se encuentra en un canal de voz"
+delete: "Se eliminaron {} mensajes" #"Se eliminaron {count} mensajes"
+no_perm: "No tienes permisos para eliminar mensajes."
+help: "Comandos"
+
+commands_help:
+  elvitas: 'Envía varios mensajes diciendo El Vitas'
+  join: 'Unirse al canal de voz del usuario que ejecuta el comando'
+  move: 'Mover un @usuario a otro canal de voz. Uso: v!move @usuario nombre_canal_de_voz'
+  leave: 'Dejar el canal de voz actual'
+  play: 'Reproduce audio desde una URL o palabra especificada. En caso de ser una palabra, se debe indicar el número de la opción correspondiente. Uso: v!play url'
+  skip: 'Salta al siguiente audio en la cola'
+  queue: 'Muestra los audios en la cola'
+  shuffle: 'Mezcla la cola cambiando el orden de reproducción'
+  stop: 'Detener la reproducción de audios del bot'
+  ping: 'Muestra la latencia del bot'
+  me: 'Muestra tu nombre de usuario y tu avatar'
+  help: 'Muestra esta ayuda'
+  delete: '(Usuario requiere tener permisos para borrar mensajes) Elimina mensajes dentro del canal que se invoca. Se debe indicar el número de mensajes a eliminar, en caso de querer borrar todos se usa "all". Ejemplo de uso: v!play delete numero'
+  options: 'Muestra los comandos de opciones'

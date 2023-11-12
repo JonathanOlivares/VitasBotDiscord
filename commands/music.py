@@ -4,11 +4,11 @@ import random
 import asyncio
 import discord
 import subprocess
-import ES.utils.util as util
+import utils.util as util
 from pytube import Search, YouTube
 from discord.ext import commands
 
-from config import var
+import settings.var as var
 from enum import Enum
 
 
@@ -21,8 +21,9 @@ class BotAction(Enum):
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
     @commands.command()
-    async def play(self, ctx, *, search):
+    async def play(self, ctx: commands.Context, *, search):
 
         pattern = re.compile(
             r'^(https?\:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$')
@@ -32,20 +33,23 @@ class Music(commands.Cog):
         else:
             video = await self.get_video_results(ctx, search)
             if video == None:
-                return "User dont put number"
+                print("User dont put number")
+                return 
 
         if await self.join(ctx):
             var.queue.append(video)
             if not ctx.voice_client.is_playing():
-                self.play_next(ctx)
+                await self.play_next(ctx)
                 ctx.voice_client.pause()
                 await asyncio.sleep(2)
                 ctx.voice_client.resume()
 
-    async def get_video_results(self, ctx, search):
+    async def get_video_results(self, ctx: commands.Context, search):
         videos = Search(search).results
+        key = "select_option"
+        txt_title = var.get_text_in_language(key,__file__)
         embed = discord.Embed(
-            title=f"Selecciona la opcion", color=discord.Color.purple())
+            title=txt_title, color=discord.Color.purple())
         for i in range(5):
             author = videos[i].author
             name = videos[i].title
@@ -59,18 +63,23 @@ class Music(commands.Cog):
             if(response.content.isdigit() and int(response.content) in range(1, 6)):
                 song_number = int(response.content)
                 # You can use song_number to play the song
-                msg = f"Seleccionaste el numero {song_number}"
+                key = "select_number"
+                msg = var.get_text_in_language(key,__file__).format(song_number)
                 await var.bot_send_msg(ctx,msg)
                 return videos[song_number-1]
             else:
-                await var.bot_send_msg(ctx,"Se esperaba un digito entre 1 y 5. Vuelve a intentarlo")
+                key = "invalid_digit"
+                msg = var.get_text_in_language(key,__file__)
+                await var.bot_send_msg(ctx,msg)
                 return None
         except asyncio.TimeoutError:
-            msg = ("Te demoraste demaciado en responder.")
+            key = "timeout"
+            msg = var.get_text_in_language(key,__file__)
             await var.bot_send_msg(ctx,msg)
             return None
 
-    def play_next(self, ctx):
+    #Return True if playing and return false if the queue is empty
+    async def play_next(self, ctx: commands.Context):
         if var.queue:
             var.now_playing = var.queue[0]
 
@@ -83,22 +92,31 @@ class Music(commands.Cog):
             
             embed = discord.Embed(
                 title="", color=discord.Color.purple())
+            key = "play"
+            playing = var.get_text_in_language(key,__name__)
             embed.add_field(
-                name=f"Sonando: {var.now_playing.author}", value=var.now_playing.title, inline=False)
+                name=f"{playing} {var.now_playing.author}", value=var.now_playing.title, inline=False)
             asyncio.run_coroutine_threadsafe(
                 var.bot_send_msg(ctx,embed,"embed"), self.bot.loop)
 
+            return True
         else:
+            key = "no_audio"
+            msg = var.get_text_in_language(key,__file__)
             asyncio.run_coroutine_threadsafe(
-                var.bot_send_msg(ctx,"No hay más audios en la cola."),
+                var.bot_send_msg(ctx,msg),
                 self.bot.loop)
             var.now_playing = None
+            ctx.voice_client.stop() 
+            print("Finish queue\n")
+            return False
+
 
     async def after_play(self,ctx):
-        self.play_next(ctx)
-        ctx.voice_client.pause()
-        await asyncio.sleep(2)
-        ctx.voice_client.resume()
+        if await self.play_next(ctx):
+            ctx.voice_client.pause()
+            await asyncio.sleep(2)
+            ctx.voice_client.resume()
                 
 
     @commands.command()
@@ -108,7 +126,8 @@ class Music(commands.Cog):
                 var.now_playing = None
                 ctx.voice_client.stop()
             else:
-                msg="No hay ninguna canción en reproducción."
+                key = "no_playing"
+                msg= var.get_text_in_language(key,__file__)
                 await var.bot_send_msg(ctx,msg)
 
     @commands.command()
@@ -117,7 +136,8 @@ class Music(commands.Cog):
             if var.now_playing != None:
                 ctx.voice_client.pause()
             else:
-                msg="No hay ninguna canción en reproducción."
+                key = "no_playing"
+                msg= var.get_text_in_language(key,__file__)
                 await var.bot_send_msg(ctx,msg)
 
     @commands.command()
@@ -126,7 +146,8 @@ class Music(commands.Cog):
             if var.now_playing != None:
                 ctx.voice_client.resume()
             else:
-                msg="No hay ninguna canción en reproducción."
+                key = "no_playing"
+                msg= var.get_text_in_language(key,__file__)
                 await var.bot_send_msg(ctx,msg)
 
     @commands.command()
@@ -137,11 +158,12 @@ class Music(commands.Cog):
                 ctx.voice_client.stop()
                 var.now_playing = None
             else:
-                msg = "No hay ninguna canción en reproducción."
+                key = "no_playing"
+                msg= var.get_text_in_language(key,__file__)
                 await var.bot_send_msg(ctx,msg)
 
     @commands.command()
-    async def join(self, ctx):  # Es necesario: pip install pynacl
+    async def join(self, ctx):  # Requires: pip install pynacl
         is_join = True
         action = await self.verify_join(ctx)
         match action:
@@ -153,26 +175,28 @@ class Music(commands.Cog):
                 is_join = False
         return is_join
 
-    async def verify_join(self,ctx):
+    async def verify_join(self,ctx: commands.Context):
+        channel = ctx.author.voice.channel
         if(util.author_in_voice_channel(ctx)):
             bot_voice = ctx.voice_client
             if not util.bot_in_voice_channel(ctx):
                 return BotAction.CONNECT
 
             elif bot_voice.is_playing():
-                if util.same_voice_channel:
+                if util.same_voice_channel(ctx,channel=channel):
                     return BotAction.NOTHING
                 else:
-                    msg="Bot en otro canal."
+                    key = "other_channel"
 
-            elif not util.same_voice_channel(ctx):
+            elif not util.same_voice_channel(ctx,channel=channel):
                 return BotAction.MOVE
  
             else:
-                msg="Bot ya se encuentra en este canal."
+                return BotAction.NOTHING
         else:
-            msg="Debes estar en un canal de voz"
+            key="must_be_in_voice_channel"
 
+        msg = var.get_text_in_language(key,__file__)
         await var.bot_send_msg(ctx,msg)
         return BotAction.FALSE
 
@@ -192,11 +216,15 @@ class Music(commands.Cog):
 
     @commands.command(name='queue')
     async def queue_command(self, ctx):
-        print(var.now_playing)
+        key = "queue"
+        title_txt = var.get_text_in_language(key,__file__)
         if (var.now_playing != None):
             embed = discord.Embed(
-                title=f"Cola:", color=discord.Color.purple())
-            embed.add_field(name=f"Sonando: {var.now_playing.author}",
+                title=title_txt, color=discord.Color.purple())
+            
+            key = "play"
+            playing  = var.get_text_in_language(key,__file__)
+            embed.add_field(name=f"{playing} {var.now_playing.author}",
                             value=var.now_playing.title, inline=False)
             for i in range(len(var.queue)):
                 author = var.queue[i].author
@@ -205,7 +233,8 @@ class Music(commands.Cog):
                     name=f"{i+1}) {author}", value=name, inline=False)
             await var.bot_send_msg(ctx,embed,"embed")
         else:
-            msg = "No hay canciones en la cola"
+            key = "no_audio"
+            msg = var.get_text_in_language(key,__file__)
             await var.bot_send_msg(ctx,msg)
 
     @commands.command()
@@ -214,12 +243,13 @@ class Music(commands.Cog):
             var.queue.append(var.now_playing)
             random.shuffle(var.queue)
             await self.skip(ctx)
-            msg = "Mezclado"
-            await var.bot_send_msg(ctx,msg)
-        else:
-            msg = "No posees canciones que mezclar"
-            await var.bot_send_msg(ctx,msg)
+            key = "shuffle"
 
+        else:
+            key = "no_songs_to_shuffle"
+            
+        msg = var.get_text_in_language(key,__file__)
+        await var.bot_send_msg(ctx,msg)
 
 async def setup(bot):
     await bot.add_cog(Music(bot))

@@ -1,31 +1,22 @@
 import discord
 import asyncio
 
-from config import var
+import settings.var as var
 from discord.ext import commands
-from config.config import TOKEN
+from settings.setting import TOKEN
 
-
-def main():
-    bot_vitas = commands.Bot(command_prefix="v!",
-                             intents=discord.Intents.all(), description="Bot de vitassss")
-
-    bot_vitas.remove_command("help")
-
-    @bot_vitas.event
-    async def on_ready():
-        await var.load(bot_vitas)
-        await asyncio.sleep(2)
-        await bot_vitas.tree.sync()
+class BotVitas(commands.Bot):
+    async def on_ready(self: commands.Bot):
         activity = discord.Game(name="v!help")
-        await bot_vitas.change_presence(status=discord.Status.online, activity=activity)
-        print(f"Conectado como:{bot_vitas.user}")
+        await self.change_presence(status=discord.Status.online, activity=activity)
+        print(f"Connected like:{self.user}")
 
-    @bot_vitas.tree.command(name="vitas_help", description="Obtienes el comando de ayuda")
-    async def vitas_help(interaction: discord.Interaction):
-        await interaction.response.send_message("usa v!help para obtener los comandos", ephemeral=True)
+    async def setup_hook(self: commands.Bot):
+        self.remove_command("help")
+        await var.load(self)
+        await self.tree.sync()
 
-    # @bot_vitas.event  # En caso de comando incorrecto
+        # @bot_vitas.event  # En caso de comando incorrecto
     # async def on_command_error(ctx, error: discord.DiscordException):
     #     if isinstance(error, commands.CommandNotFound):
     #         print(f"User put an incorrect command: {error}")
@@ -35,8 +26,15 @@ def main():
     #         print(
     #             f"Error no considerado: {error}")
 
-    bot_vitas.run(TOKEN)
+
+async def main():
+    command_prefix = "v!"
+    intents = discord.Intents.all()
+    description="Vitas"
+    bot_vitas = BotVitas(command_prefix=command_prefix, description=description,intents=intents)
+    
+    await bot_vitas.start(TOKEN)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

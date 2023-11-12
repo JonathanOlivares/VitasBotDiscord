@@ -1,0 +1,23 @@
+me: "Your name is: {}\nYour profile picture is:" #"Your name is: {name}\nYour profile picture is:"
+playing: "The bot is currently playing. Try again later."
+move: "{} moved to voice channel {}" #"{user} moved to voice channel {channel}"
+not_in_voice: "The user {} is not in a voice channel" #"The user {user} is not in a voice channel"
+delete: "{} messages were deleted" #"{count} messages were deleted"
+no_perm: "You don't have permission to delete messages."
+help: "Commands"
+
+commands_help:
+  elvitas: 'The Bot sends several messages saying El Vitas'
+  join: 'Join the voice channel of the user who executes the command'
+  move: 'Move a @user to another voice channel. Usage: v!move @user voice_channel_name'
+  leave: 'Leave the current voice channel'
+  play: "Play audio from a URL or specified keyword. If it's a keyword, indicate the corresponding option number. Usage: v!play url"
+  skip: 'Skip to the next audio in the queue'
+  queue: 'Show the audios in the queue'
+  shuffle: 'Shuffle the queue by changing the playback order'
+  stop: 'Stop playing bot audios'
+  ping: 'Show the bot latency'
+  me: 'Show your username and avatar'
+  help: 'Show this help'
+  delete: '(User needs permission to delete messages) Delete messages within the invoked channel. Specify the number of messages to delete, use "all" to delete all. Example usage: v!play delete number'
+  options: 'Show option commands'

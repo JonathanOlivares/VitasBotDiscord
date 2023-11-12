@@ -1,47 +1,50 @@
 import discord
 
-from config import var
-from ES.utils import util
+import settings.var as var
 from discord.ext import commands
 
 
 class General(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
+        
     @commands.command()
-    async def ping(self, ctx):
+    async def ping(self, ctx: commands.Context):
         msg = f"{round(self.bot.latency * 1000)} ms"
         await var.bot_send_msg(ctx, msg)
 
     @commands.command()
-    async def me(self, ctx):
+    async def me(self, ctx: commands.Context):
         name = ctx.author.display_name
         pic = ctx.author.avatar
-        await var.bot_send_msg(ctx, f"Tu nombre es: {name}\n")
-        await var.bot_send_msg(ctx, "Tu foto de perfil es:")
-        await var.bot_send_msg(ctx, pic)
+        key = "me"
+        msg = var.get_text_in_language(key, __file__).format(name)
+        await var.bot_send_msg(ctx,msg)
+        await var.bot_send_msg(ctx, msg=pic)
 
     @commands.command()
-    async def move(self, ctx, user: discord.Member, channel: discord.VoiceChannel):
+    async def move(self, ctx: commands.Context, user: discord.Member, channel: discord.VoiceChannel):
         move_bool = True
         print(user)
         if user.voice != None:
             print(self.bot.user)
             if user == self.bot.user and ctx.voice_client.is_playing():
-                msg = "El bot actualmente se encuentra en reproducción. Intentelo más tarde"
+                key = "playing"
+                msg = var.get_text_in_language(key,__file__)
                 await var.bot_send_msg(ctx, msg)
                 move_bool = False
             if (move_bool):
                 await user.move_to(channel)
-                msg = f"{user} fue trasladado al canal de voz {channel}"
+                key = "move"
+                msg = var.get_text_in_language(key,__file__).format(user,channel)
                 await var.bot_send_msg(ctx, msg)
         else:
-            msg = f"El usuario {user} no se encuentra en un canal de voz"
+            key = "not_in_voice"
+            msg = var.get_text_in_language(key,__file__).format(user)
             await var.bot_send_msg(ctx, msg)
 
     @commands.command()
-    async def delete(self, ctx, num):
+    async def delete(self, ctx: commands.Context, num):
         count = 0
         if ctx.author.guild_permissions.manage_messages:
             if num == "all":
@@ -61,20 +64,26 @@ class General(commands.Cog):
                 await ctx.channel.purge(limit=num)
                 count += num
 
-            msg = f"se eliminaron {count} mensajes"
+            key = "delete"
+            msg = var.get_text_in_language(key,__file__).format(count)
             await var.bot_send_msg(ctx, msg)
         else:
-            msg = "No tienes permisos para eliminar mensajes."
-            await var.bot_send_msg(ctx, msg)
+            key = "no_perm"
+            msg = var.get_text_in_language(key,__file__)
+            await var.bot_send_msg(ctx, key=key,command=__file__)
 
     @commands.command(name='help')
-    async def help_command(self, ctx):
-        # Mostrar lista de comandos
+    async def help_command(self, ctx: commands.Context):
+        # Show commands list
+        key = "help"
+        txt_title = var.get_text_in_language(key,__file__)
         embed = discord.Embed(
-            title=f"Comandos", color=discord.Color.purple())
-        for command, info in util.commands_help_ES.items():
+            title=txt_title, color=discord.Color.purple())
+        key = "commands_help"
+        items = var.get_text_in_language(key,__file__).items()
+        for command, info in items:
             embed.add_field(name=command, value=info, inline=False)
-        await var.bot_send_msg(ctx, embed, "embed")
+        await var.bot_send_msg(ctx, msg=embed, type="embed")
 
     @commands.command()
     async def elvitas(self, ctx):
@@ -82,12 +91,6 @@ class General(commands.Cog):
         for i in range(110):
             vitas += " El Vitas El Vitas"
         await var.bot_send_msg(ctx, vitas)
-
-    @commands.command()
-    async def sync(self, ctx):
-        await self.bot.tree.sync()
-        await var.bot_send_msg(ctx, "Estoy sincronizado")
-
 
 async def setup(bot):
     await bot.add_cog(General(bot))
