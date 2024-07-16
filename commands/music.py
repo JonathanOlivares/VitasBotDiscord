@@ -4,11 +4,11 @@ import random
 import asyncio
 import discord
 import subprocess
-import utils.util as util
+import utils.verify as verify
+import utils.useful as useful
+
 from pytube import Search, YouTube
 from discord.ext import commands
-
-import settings.var as var
 from enum import Enum
 
 
@@ -18,12 +18,13 @@ class BotAction(Enum):
     MOVE = 2
     FALSE = 3
 
+
 class Music(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @commands.command()
-    async def play(self, ctx: commands.Context, *, search):
+    async def play(self, ctx: commands.Context, *, search: str):
 
         pattern = re.compile(
             r'^(https?\:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$')
@@ -34,20 +35,36 @@ class Music(commands.Cog):
             video = await self.get_video_results(ctx, search)
             if video == None:
                 print("User dont put number")
-                return 
+                return
 
         if await self.join(ctx):
-            var.queue.append(video)
-            if not ctx.voice_client.is_playing():
-                await self.play_next(ctx)
-                ctx.voice_client.pause()
-                await asyncio.sleep(2)
-                ctx.voice_client.resume()
+            useful.queue.append(video)
+            vc = ctx.voice_client
 
-    async def get_video_results(self, ctx: commands.Context, search):
-        videos = Search(search).results
+            if vc is None:
+                raise Exception("Bot is not in a voice channel.")
+
+            if not isinstance(vc, discord.VoiceClient):
+                raise TypeError("vc is not a discord.VoiceClient")
+
+            if not vc.is_playing():
+                await self.play_next(ctx)
+                vc.pause()
+                await asyncio.sleep(2)
+                vc.resume()
+
+    async def get_video_results(self, ctx: commands.Context, search: str):
+        videos: list[YouTube] | None = Search(search).results
         key = "select_option"
-        txt_title = var.get_text_in_language(key,__file__)
+        txt_title = useful.get_text_in_language(ctx, key, __file__)
+
+        if not isinstance(txt_title, str):
+            raise TypeError("txt_title is not a str. Expected: str")
+
+        if videos is None:
+            NotImplemented  # AÑADIR TEXTO QUE DIGA QUE NO SE ENCONTRARON RESULTADOS
+            return
+
         embed = discord.Embed(
             title=txt_title, color=discord.Color.purple())
         for i in range(5):
@@ -56,200 +73,341 @@ class Music(commands.Cog):
             embed.add_field(
                 name=f"{i+1}) {author}", value=name, inline=False)
 
-        await var.bot_send_msg(ctx,embed,"embed")
+        await useful.bot_send_msg(ctx, embed)
 
         try:
+            MEJORAR ESTA FORMA DE IMPLEMENTAR, buscar forma sin try except
             response = await self.bot.wait_for("message", check=lambda message: message.author == ctx.author, timeout=20)
-            if(response.content.isdigit() and int(response.content) in range(1, 6)):
+            if (response.content.isdigit() and int(response.content) in range(1, 6)):
                 song_number = int(response.content)
                 # You can use song_number to play the song
                 key = "select_number"
-                msg = var.get_text_in_language(key,__file__).format(song_number)
-                await var.bot_send_msg(ctx,msg)
+                msg = useful.get_text_in_language(ctx, key, __file__)
+                if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
+                msg = msg.format(song_number)
+                await useful.bot_send_msg(ctx, msg)
                 return videos[song_number-1]
             else:
                 key = "invalid_digit"
-                msg = var.get_text_in_language(key,__file__)
-                await var.bot_send_msg(ctx,msg)
+                msg = useful.get_text_in_language(ctx, key, __file__)
+                if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
+                await useful.bot_send_msg(ctx, msg)
                 return None
         except asyncio.TimeoutError:
             key = "timeout"
-            msg = var.get_text_in_language(key,__file__)
-            await var.bot_send_msg(ctx,msg)
+            msg = useful.get_text_in_language(ctx, key, __file__)
+            if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
+            await useful.bot_send_msg(ctx, msg)
             return None
 
-    #Return True if playing and return false if the queue is empty
+    # Return True if playing and return false if the queue is empty
     async def play_next(self, ctx: commands.Context):
-        if var.queue:
-            var.now_playing = var.queue[0]
+        vc = ctx.voice_client
+
+        if vc is None:
+            raise Exception("Unexpected expeception. VoiceClient is None.")
+
+        if not isinstance(vc, discord.VoiceClient):
+            raise TypeError("vc is not a discord.VoiceClient")
+
+        if useful.queue:
+            useful.now_playing = useful.queue[0]
 
             ytdl = subprocess.Popen(
-                ["yt-dlp", "-f", "bestaudio/worst", "-i", var.queue.pop(0).watch_url, "-o", "-"], stdout=subprocess.PIPE)
-            source = discord.FFmpegPCMAudio(
-                ytdl.stdout, pipe=True)
-
-            ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self.after_play(ctx),self.bot.loop))
+                ["yt-dlp", "-f", "bestaudio/worst", "-i", useful.queue.pop(0).watch_url, "-o", "-"], stdout=subprocess.PIPE)
             
+            ystoud = ytdl.stdout
+
+            if ystoud is None:
+                raise Exception("Unexpected error. ystoud is None.")
+            
+            # if not isinstance(ystoud, BufferedIOBase):
+            #     raise TypeError("ystoud is not a BufferedIOBase")
+
+            ## cuidado ver si funciona
+            source = discord.FFmpegPCMAudio(
+                str(ystoud), pipe=True)
+
+            vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
+                self.after_play(ctx), self.bot.loop))
+
             embed = discord.Embed(
                 title="", color=discord.Color.purple())
             key = "play"
-            playing = var.get_text_in_language(key,__name__)
+            playing = useful.get_text_in_language(ctx,key, __name__)
             embed.add_field(
-                name=f"{playing} {var.now_playing.author}", value=var.now_playing.title, inline=False)
+                name=f"{playing} {useful.now_playing.author}", value=useful.now_playing.title, inline=False)
             asyncio.run_coroutine_threadsafe(
-                var.bot_send_msg(ctx,embed,"embed"), self.bot.loop)
+                useful.bot_send_msg(ctx, embed), self.bot.loop)
 
             return True
         else:
             key = "no_audio"
-            msg = var.get_text_in_language(key,__file__)
+            msg = useful.get_text_in_language(ctx, key, __file__)
+            if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
             asyncio.run_coroutine_threadsafe(
-                var.bot_send_msg(ctx,msg),
+                useful.bot_send_msg(ctx, msg),
                 self.bot.loop)
-            var.now_playing = None
-            ctx.voice_client.stop() 
+            useful.now_playing = None
+            vc.stop()
             print("Finish queue\n")
             return False
 
-
-    async def after_play(self,ctx):
+    async def after_play(self, ctx: commands.Context):
         if await self.play_next(ctx):
-            ctx.voice_client.pause()
+            vc = ctx.voice_client
+
+            if vc is None:
+                raise Exception("Bot is not in a voice channel.")
+
+            if not isinstance(vc, discord.VoiceClient):
+                raise TypeError("vc is not a discord.VoiceClient")
+
+            vc.pause()
             await asyncio.sleep(2)
-            ctx.voice_client.resume()
-                
+            vc.resume()
 
     @commands.command()
-    async def skip(self, ctx):
-        if await util.util.verify(ctx):
-            if var.now_playing != None:
-                var.now_playing = None
-                ctx.voice_client.stop()
+    async def skip(self, ctx: commands.Context):
+        if await verify.verify_music_commands(ctx):
+            if useful.now_playing != None:
+                useful.now_playing = None
+                vc = ctx.voice_client
+
+                if vc is None:
+                    raise Exception("Bot is not in a voice channel.")
+
+                if not isinstance(vc, discord.VoiceClient):
+                    raise TypeError("vc is not a discord.VoiceClient")
+
+                vc.stop()
             else:
                 key = "no_playing"
-                msg= var.get_text_in_language(key,__file__)
-                await var.bot_send_msg(ctx,msg)
+                msg = useful.get_text_in_language(ctx, key, __file__)
+
+                if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
+                await useful.bot_send_msg(ctx, msg)
 
     @commands.command()
-    async def pause(self, ctx):
-        if await util.verify(ctx):
-            if var.now_playing != None:
-                ctx.voice_client.pause()
+    async def pause(self, ctx: commands.Context):
+        if await verify.verify_music_commands(ctx):
+
+            if useful.now_playing != None:
+                vc = ctx.voice_client
+                if vc is None:
+                    raise Exception("Bot is not in a voice channel.")
+
+                if not isinstance(vc, discord.VoiceClient):
+                    raise TypeError("vc is not a discord.VoiceClient")
+
+                vc.pause()
             else:
                 key = "no_playing"
-                msg= var.get_text_in_language(key,__file__)
-                await var.bot_send_msg(ctx,msg)
+                msg = useful.get_text_in_language(ctx, key, __file__)
+
+                if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
+                await useful.bot_send_msg(ctx, msg)
 
     @commands.command()
-    async def resume(self, ctx):
-        if await util.verify(ctx):
-            if var.now_playing != None:
-                ctx.voice_client.resume()
+    async def resume(self, ctx: commands.Context):
+        if await verify.verify_music_commands(ctx):
+            if useful.now_playing != None:
+                vc = ctx.voice_client
+                if vc is None:
+                    raise Exception("Bot is not in a voice channel.")
+
+                if not isinstance(vc, discord.VoiceClient):
+                    raise TypeError("vc is not a discord.VoiceClient")
+
+                vc.resume()
             else:
                 key = "no_playing"
-                msg= var.get_text_in_language(key,__file__)
-                await var.bot_send_msg(ctx,msg)
+                msg = useful.get_text_in_language(ctx, key, __file__)
+
+                if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
+                await useful.bot_send_msg(ctx, msg)
 
     @commands.command()
-    async def stop(self, ctx):
-        if await util.verify(ctx):
-            if ctx.voice_client.is_playing():
-                var.queue.clear()
-                ctx.voice_client.stop()
-                var.now_playing = None
+    async def stop(self, ctx: commands.Context):
+        if await verify.verify_music_commands(ctx):
+            vc = ctx.voice_client
+
+            if vc is None:
+                raise Exception("Bot is not in a voice channel.")
+
+            if not isinstance(vc, discord.VoiceClient):
+                raise TypeError("vc is not a discord.VoiceClient")
+
+            if vc.is_playing():
+                useful.queue.clear()
+                vc.stop()
+                useful.now_playing = None
             else:
                 key = "no_playing"
-                msg= var.get_text_in_language(key,__file__)
-                await var.bot_send_msg(ctx,msg)
+                msg = useful.get_text_in_language(ctx, key, __file__)
+                if not isinstance(msg, str):
+                    raise TypeError("msg is not a string type. Expected: str")
+                await useful.bot_send_msg(ctx, msg)
 
     @commands.command()
-    async def join(self, ctx):  # Requires: pip install pynacl
+    async def join(self, ctx: commands.Context):  # Requires: pip install pynacl
         is_join = True
         action = await self.verify_join(ctx)
+        author = ctx.author
+        if author is None:
+            raise Exception("Author is None.")
+
+        if not isinstance(author, discord.Member):
+            raise TypeError("author is not a discord.Member")
+
+        vc = author.voice
+
+        if vc is None:
+            raise Exception("Author is not in a voice channel.")
+
+        channel = vc.channel
+
+        if channel is None:
+            raise Exception("Author is not in a voice channel.")
+
         match action:
             case BotAction.CONNECT:
-                await ctx.author.voice.channel.connect()
+                await channel.connect()
             case BotAction.MOVE:
-                self.move_bot(ctx.author.voice.channel)
+                if not isinstance(channel, discord.VoiceChannel):
+                    raise TypeError("channel is not a discord.VoiceChannel")
+                await self.move_bot(ctx, channel)
             case BotAction.FALSE:
                 is_join = False
         return is_join
 
-    async def verify_join(self,ctx: commands.Context):
-        channel = ctx.author.voice.channel
-        if(util.author_in_voice_channel(ctx)):
+    async def verify_join(self, ctx: commands.Context):
+        author = ctx.author
+        if not isinstance(author, discord.Member):
+            return BotAction.FALSE
+        vc = author.voice
+        if vc is None:
+            return BotAction.FALSE
+
+        channel = vc.channel
+        if verify.author_in_voice_channel(ctx):
+
+            if not isinstance(channel, discord.VoiceChannel):
+                return BotAction.FALSE
+
+            if ctx.guild is None:
+                return BotAction.FALSE
+
             bot_voice = ctx.voice_client
-            if not util.bot_in_voice_channel(ctx):
+
+            if bot_voice is None:
+                return 2
+
+            if not isinstance(bot_voice, discord.VoiceClient):
+                return 2
+
+            if not verify.bot_in_voice_channel(ctx):
                 return BotAction.CONNECT
 
-            elif bot_voice.is_playing():
-                if util.same_voice_channel(ctx,channel=channel):
+            elif bot_voice is not None and bot_voice.is_playing():
+                if verify.same_voice_channel(ctx, channel=channel):
                     return BotAction.NOTHING
                 else:
                     key = "other_channel"
 
-            elif not util.same_voice_channel(ctx,channel=channel):
+            elif not verify.same_voice_channel(ctx, channel=channel):
                 return BotAction.MOVE
- 
+
             else:
                 return BotAction.NOTHING
         else:
-            key="must_be_in_voice_channel"
+            key = "must_be_in_voice_channel"
 
-        msg = var.get_text_in_language(key,__file__)
-        await var.bot_send_msg(ctx,msg)
+        msg = useful.get_text_in_language(ctx, key, __file__)
+        if not isinstance(msg, str):
+            raise TypeError("msg is not a string type. Expected: str")
+        await useful.bot_send_msg(ctx, msg)
         return BotAction.FALSE
 
-    async def move_bot(self, ctx, channel):
-        bot_voice = ctx.voice_client
-        await bot_voice.move_to(channel)
-        await util.verify_move(ctx,channel)
+    async def move_bot(self, ctx: commands.Context, channel: discord.VoiceChannel):
+        vc = ctx.voice_client
+
+        if vc is None:
+            raise Exception("Bot is not in a voice channel.")
+
+        if not isinstance(vc, discord.VoiceClient):
+            raise TypeError("vc is not a discord.VoiceClient")
+
+        await vc.move_to(channel)
+        await verify.verify_move(ctx, channel)
         return True
 
-
     @commands.command()
-    async def leave(self, ctx):
-        if await util.verify(ctx):
-            var.queue.clear()
-            ctx.voice_client.stop()
-        await ctx.voice_client.disconnect()
+    async def leave(self, ctx: commands.Context) -> None:
+        if await verify.verify_music_commands(ctx):
+            vc = ctx.voice_client
+
+            if vc is None:
+                raise Exception("Bot is not in a voice channel.")
+
+            if not isinstance(vc, discord.VoiceClient):
+                raise TypeError("vc is not a discord.VoiceClient")
+
+            useful.queue.clear()
+            vc.stop()
+        await vc.disconnect()
 
     @commands.command(name='queue')
-    async def queue_command(self, ctx):
-        key = "queue"
-        title_txt = var.get_text_in_language(key,__file__)
-        if (var.now_playing != None):
+    async def queue_command(self, ctx: commands.Context):
+        if useful.now_playing != None:
+            key = "queue"
+            title_txt = useful.get_text_in_language(ctx, key, __file__)
             embed = discord.Embed(
                 title=title_txt, color=discord.Color.purple())
-            
+
             key = "play"
-            playing  = var.get_text_in_language(key,__file__)
-            embed.add_field(name=f"{playing} {var.now_playing.author}",
-                            value=var.now_playing.title, inline=False)
-            for i in range(len(var.queue)):
-                author = var.queue[i].author
-                name = var.queue[i].title
+            playing = useful.get_text_in_language(ctx, key, __file__)
+            embed.add_field(name=f"{playing} {useful.now_playing.author}",
+                            value=useful.now_playing.title, inline=False)
+            for i in range(len(useful.queue)):
+                author = useful.queue[i].author
+                name = useful.queue[i].title
                 embed.add_field(
                     name=f"{i+1}) {author}", value=name, inline=False)
-            await var.bot_send_msg(ctx,embed,"embed")
+            await useful.bot_send_msg(ctx, embed)
         else:
             key = "no_audio"
-            msg = var.get_text_in_language(key,__file__)
-            await var.bot_send_msg(ctx,msg)
+            msg = useful.get_text_in_language(ctx, key, __file__)
+            if not isinstance(msg, str):
+                raise TypeError("msg is a dict. Expected: str")
+            await useful.bot_send_msg(ctx, msg)
 
     @commands.command()
-    async def shuffle(self, ctx):
-        if len(var.queue) > 0:
-            var.queue.append(var.now_playing)
-            random.shuffle(var.queue)
+    async def shuffle(self, ctx: commands.Context):
+        if len(useful.queue) > 0:
+            now = useful.now_playing
+            if now is None:
+                raise Exception("Unexpected error. now is None")
+            useful.queue.append(now)
+            random.shuffle(useful.queue)
             await self.skip(ctx)
             key = "shuffle"
 
         else:
             key = "no_songs_to_shuffle"
-            
-        msg = var.get_text_in_language(key,__file__)
-        await var.bot_send_msg(ctx,msg)
 
-async def setup(bot):
+        msg = useful.get_text_in_language(ctx, key, __file__)
+        if not isinstance(msg, str):
+            raise TypeError("msg is a dict. Expected: str")
+        await useful.bot_send_msg(ctx, msg)
+
+
+async def setup(bot: commands.Bot):
     await bot.add_cog(Music(bot))

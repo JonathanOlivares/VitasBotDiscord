@@ -1,7 +1,6 @@
 from discord.ext import commands
 import discord
 
-
 class Interaction(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -24,7 +23,12 @@ class Interaction(commands.Cog):
 
     async def get_time_on_server(self,interaction: discord.Interaction, user: discord.Member):
         name_clicked = user.name if user.bot else user.global_name
-        msg = f'Hola **{interaction.user.global_name}**. {name_clicked} es miembro de "{interaction.guild.name}" desde {user.joined_at.strftime("%d-%m-%Y")}'
+        joined_at = user.joined_at
+        interaction_guild = interaction.guild
+        if joined_at is None or interaction_guild is None:
+            raise Exception("Unexcepted error. User joined_at is None or guild is None.")
+
+        msg = f'Hola **{interaction.user.global_name}**. {name_clicked} es miembro de "{interaction_guild.name}" desde {joined_at.strftime("%d-%m-%Y")}'
         await interaction.response.send_message(msg, ephemeral=True)
     
     @discord.app_commands.command(name="givemebadge")
@@ -32,5 +36,5 @@ class Interaction(commands.Cog):
         await interaction.response.send_message("https://discord.com/developers/active-developer", ephemeral=True)
 
 
-async def setup(bot):
+async def setup(bot: commands.Bot):
     await bot.add_cog(Interaction(bot))

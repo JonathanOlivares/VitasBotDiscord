@@ -1,78 +1,97 @@
 # Discord user can have custom options
 import os
 import discord
-import asyncio
-import yaml
+import utils.useful as useful
+
 
 from discord.ext import commands
-import settings.var as var
+from settings.lang import LANG_CODES
+from utils.globals import cache
 
 class Options(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.option_dic = {}
-        self.valid_language = ["US", "ES"]
         help_path = os.path.join("settings", "settings.yaml")
         self.path = os.path.abspath(path=help_path)
 
     @commands.command()
-    async def options(self, ctx):
+    async def options(self, ctx) -> None:
         embed = discord.Embed(
             title=f"Options:", color=discord.Color.purple())
         key = "commands_option"
-        items = var.get_text_in_language(key,__file__).items()
+        texts = useful.get_text_in_language(ctx, key, __file__)
+
+        if not isinstance(texts, dict):
+            raise TypeError("texts is not a dict. Expected: dict") 
+
+        items = texts.items()
+
         for command, info in items:
             embed.add_field(name=command, value=info, inline=False)
-        await var.bot_send_msg(ctx, embed, "embed")
+
+        await useful.bot_send_msg(ctx, embed)
 
     @commands.command()
-    async def language(self, ctx, lang: str):
-        if lang in self.valid_language:
-            with open(self.path, 'r') as yaml_file:
-                data = yaml.safe_load(yaml_file)
-
-            data["language"] = lang
-
-            with open(self.path, 'w') as yaml_file:
-                yaml.safe_dump(data,yaml_file)
+    async def language(self, ctx: commands.Context, lang: str) -> None:
+        if lang in LANG_CODES:
+            guild = ctx.guild
+            
+            if guild is None:
+                raise Exception("Must be in a guild to change language.")
+                
+            server = cache.get_server(guild.name)
+            if server is None:
+                server = cache.add_server(guild.name)
+            
+            data = server.get_all_info()
+            cache.update_server(data, {"language": lang})
 
             key = "lang_change"
-            msg = var.get_text_in_language(key,__file__)
-            await var.bot_send_msg(ctx, msg)
+            msg = useful.get_text_in_language(ctx, key, __file__)
+
+            if not isinstance(msg, str):
+                raise TypeError("msg is a dict. Expected: str")
+            await useful.bot_send_msg(ctx, msg)
 
     @commands.command(name="botchannel")
-    async def channel_bot_txt(self, ctx, channel_name: str):
+    async def channel_bot_txt(self, ctx: commands.Context, channel_name: str):
+        flag_change = True
+        guild = ctx.guild
+        if guild is None:
+                raise Exception("Must be in a guild to change channel.")
+
         if channel_name != "false":
+            channel_name = channel_name.replace(
+             "<", "").replace(">", "").replace("#", "")
+
             channel = discord.utils.get(
-                ctx.guild.text_channels, name=channel_name)
-            if (channel == None):
-                try:
-                    channel = str(channel_name).replace(
-                        "<", "").replace(">", "").replace("#", "")
-                    channel = ctx.guild.get_channel(int(channel))
-                    channel = channel.name
+                guild.text_channels, 
+                name=channel_name
+            )
 
-                except Exception as e:
-                    channel = None
-                    print(e)
-            else:
-                channel = channel.name
-        else:
-            channel = channel_name
+            if channel is None:
+                key = "no_channel"
+                flag_change = False
+            # channel = guild.get_channel(int(channel_name))
+            # channel = channel.name
+        
+        if flag_change:
+            key = "channel_change"
 
-        if channel == None:
-            key = "no_channel"
-        else:
-            with open(self.path, 'r') as yaml_file:
-                data = yaml.safe_load(yaml_file)
+        server = cache.get_server(guild.name)
 
-            data["textChannel"] = channel
-            with open(self.path, 'w') as yaml_file:
-                yaml.safe_dump(data,yaml_file)
-            key ="channel_change"
-            
-        msg = var.get_text_in_language(key,__file__)
-        await var.bot_send_msg(ctx, msg)
+        if server is None:
+            server = cache.add_server(guild.name)
 
-async def setup(bot):
+        data = server.get_all_info()
+        cache.update_server(data, {"channel": channel_name})
+
+        msg = useful.get_text_in_language(ctx, key, __file__)
+        if not isinstance(msg, str):
+            raise TypeError("msg is a dict. Expected: str")
+        await useful.bot_send_msg(ctx, msg)
+
+
+async def setup(bot: commands.Bot):
     await bot.add_cog(Options(bot))
